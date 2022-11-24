@@ -1742,6 +1742,25 @@ be related? How did you define it?</em></p>
 categorical and the number of observations are quit huge, what allows me
 to use chi-square test. H0 is that variables are independent. If p.value
 &lt; 0.05 - the variables are dependent.</p>
+<div class="sourceCode" id="cb47"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a>Noc_medal <span class="ot">&lt;-</span> data <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="fu">c</span>(Medal, NOC)) <span class="sc">%&gt;%</span> <span class="fu">na.omit</span>()</span>
+<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a>chisq_res <span class="ot">&lt;-</span> <span class="fu">chisq.test</span>(Noc_medal<span class="sc">$</span>Medal, Noc_medal<span class="sc">$</span>NOC)</span>
+<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a>chisq_res<span class="sc">$</span>p.value; chisq_res<span class="sc">$</span>statistic; <span class="fu">summary</span>(chisq_res)</span></code></pre></div>
+<pre><code>## [1] 0</code></pre>
+<pre><code>## X-squared 
+##  27862.89</code></pre>
+<pre><code>##           Length Class  Mode     
+## statistic   1    -none- numeric  
+## parameter   1    -none- numeric  
+## p.value     1    -none- numeric  
+## method      1    -none- character
+## data.name   1    -none- character
+## observed  608    table  numeric  
+## expected  608    -none- numeric  
+## residuals 608    table  numeric  
+## stdres    608    table  numeric</code></pre>
+<p>We have 608 observations to be used in this test, X-squared critical
+value is also huge. The most interesting fact, that p.value == 0 &lt;
+0.05, what means that our values are dependent.</p>
 </div>
 </div>
 </div>
