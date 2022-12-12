@@ -1,0 +1,276 @@
+---
+title: "Olympic games data proccessing"
+author: "Igamberdiev Lev"
+date: "`r Sys.Date()`"
+output: rmdformats::readthedown
+---
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, dpi = 300, warning=FALSE, message=FALSE)
+if (!requireNamespace("ggplot2", quietly = TRUE))
+  install.packages("ggplot2")
+if (!requireNamespace("dplyr", quietly = TRUE))
+  install.packages("dplyr")
+library(ggplot2)
+library(dplyr)
+```
+
+## Data downloading
+
+First of all I have downloaded row data by this [link](<https://stepik.org/media/attachments/lesson/603865/athlete_events.zip>). In this project we are going to process data, containing information about Olympic Games for past 120 years. In common case we have 15 variables which are described [here](<https://stepik.org/media/attachments/lesson/603865/features_description.txt>). These variables contain information about sportsman and Olympic Games of the year both. Author have changed some variables, that will be shown below.
+
+## First step: merging files
+
+Yet Olympic Games took place, the data must be uploaded. That is why I have written a function, that merges any files which extension is available in R. I will use pipelines, so before define the function I turn on the `dplyr` package by command `library()`
+
+```{r, message=FALSE}
+library(dplyr)
+```
+```{r}
+merge_csv <- function(path_to_folder, extention = 'csv'){
+  setwd(path_to_folder)
+  fun = paste('read', extention, sep='.')
+  all_csv <- list.files(path = path_to_folder) %>% lapply(fun) %>% bind_rows
+}
+```
+Speaking about `path_to_folder` variable, you need to input in it the whole path to directory where the files you want to merge are stored. Furthermore, it **must** be a string. Default value of variable `extension` is <span style="color: green;">'.csv'</span>, but you can define another extension, if there is a function `read.extension` in basic R. 
+
+## EAD
+
+Let's take a look on our data. First we need to call the function with proper values. As I'm using <span style="color: green;">'.csv'</span> files, extension is being unchanged. Then just call `str()` and `summary()` <span style="color: blue;">functions</span> on data.
+```{r, include=FALSE}
+path_to_file <- "/media/lev/d/BIOR/BIOR-20221020T192257Z-001/BIOR/Project_BIOR/Data"
+```
+
+
+```{r, warning=FALSE}
+data <- merge_csv(path_to_file)
+```
+
+```{r}
+str(data)
+```
+As it was told, we have 15 variables of different types. Also there are some <span style="color: red;">'NA'</span> values. During next steps I will use `na.rm()` to remove them. Now it is time to get breef description of <span style="color: brown;">data</span>.
+```{r}
+summary(data)
+```
+## Suspicious data removing
+
+First assumption is that duplicates are present in the data. Furthermore, there is three <span style="color: red;">suspicious values</span> in <span style="color: brown;">"Age", "Weight" and "Height"</span>. Let's correct the data
+```{r}
+data<- data[!duplicated(data),]
+bad_rows <- data %>% 
+  filter(Age == 240 | Height == 340 | Weight == 7) %>% 
+  select(ID) %>% unlist()
+```
+We have dropped duplicates and also get number of ID, where the <span style="color: red;">suspicious values</span> are located. Let's observe it.
+```{r}
+bad_rows
+```
+```{r}
+for (i in bad_rows){
+  print(data %>% filter(ID == i))
+}
+```
+For the first <span style="color: brown;">"ID"</span> it seems, that we can just delete this row, because there is no valuable information. For second and third <span style="color: brown;">"ID"</span> the <span style="color: red;">suspicious values</span> can be restored after obervation. 
+
+```{r}
+data<- data[-c(45239),]
+data$Height[data$ID == 23549] <- 176
+data$Weight[data$ID == 68370] <- 77
+```
+
+Let's take a look again.
+```{r}
+summary(data)
+```
+Looks better. Now I would like to check column <span style="color: brown;">"Sex"</span> for mistakes. I will use <span style="color: blue;">unique()</span> function to collect all **unique** **values**.
+```{r}
+data %>% select(Sex) %>% unique()
+```
+It seems, that we have some mistakes in data. G I will replace by M, row without <span style="color: brown;">"Sex"</span> I will delete. 
+```{r}
+data["Sex"][data["Sex"] == "G"] <- "M"
+data <- data %>% filter(Sex != "")
+```
+So the data is ready for further processing.
+
+---
+
+## Tasks
+
+In this part I will perform the tasks given in this [link](<https://stepik.org/media/attachments/lesson/603865/%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82_1_.pdf>). I will rewrite each task in *italics* before performing. 
+
+### Task №1
+
+*Find out the age of the youngest athletes of both sexes at the 1992 Olympics.*
+```{r}
+minF <- min(data$Age[data$Year == 1992 & data$Sex == "F"], na.rm = TRUE)
+minM <- min(data$Age[data$Year == 1992 & data$Sex == "M"], na.rm = TRUE)
+minF; minM
+```
+As <span style="color: brown;">minF</span> and <span style="color: brown;">minM</span> was subset by <span style="color: brown;">"Sex"</span>, we can see that the youngest girl was 12 y.o. and the youngest boy was 11 y.o.
+
+### Task №2
+
+*Calculate the mean and standard deviation of the Height variable for athletes of each gender.*
+```{r}
+data_m <-  data %>% filter(data$Sex == "M")
+data_f <-  data %>% filter(data$Sex == "F")
+mean_all <- c(male_mean = mean(data_m$Height, na.rm = TRUE), 
+              fmale_mean = mean(data_f$Height, na.rm = TRUE))
+sd_all <- c(male_sd = sd(data_m$Height, na.rm = TRUE), 
+            fmale_sd = sd(data_f$Height, na.rm = TRUE))
+mean_all; sd_all
+```
+### Task №3
+
+*Calculate the mean and standard deviation of the Height variable for female tennis players (sex = F) at the 2000 Olympics. Round your answer to the first decimal place after the dot.*
+```{r}
+
+ten_f_height <- data %>% filter(Year == 2000) %>% filter(Sex == "F") %>% filter(Sport == "Tennis") %>% 
+  select(Height) %>% unlist()
+ten_f_mean <- round(mean(ten_f_height, na.rm = TRUE), digits = 1)
+ten_f_sd <- round(sd(ten_f_height, na.rm = TRUE), digits = 1)
+ten_f_mean; ten_f_sd
+```
+### Task №4
+
+*What sport did the heaviest athlete compete in at the 2006 Olympics?*
+```{r}
+people_2006 <-  data %>% filter(Year == 2006)
+max_weight <- max(people_2006$Weight, na.rm = TRUE)
+heav_man_sport <- people_2006 %>% filter(Weight == max_weight) %>% select(Sport) %>% unlist()
+heav_man_sport
+```
+### Task №5
+
+*How many gold medals were won by women between 1980 and 2010?*
+```{r}
+gold_females <- data %>% filter(Year >= 1980 & Year <= 2010) %>% 
+  filter(Sex == "F") %>% filter(Medal == "Gold") %>% select(Medal) %>% unlist() %>% length()
+gold_females
+```
+### Task №6
+
+*How many times has John Aalberg competed in the Olympics in different years?*
+```{r}
+John_Alberg_took_part <- data %>% filter(Name == "John Aalberg") %>% 
+  select(Year) %>% unique
+length(John_Alberg_took_part$Year)
+```
+### Task №7
+
+*Determine the least and most represented (by number of participants) age groups of athletes at the 2008 Olympics.*
+```{r}
+Oli_2008_age <- data %>% filter(Year == 2008)
+# range(Oli_2008_age$Age, na.rm = TRUE)
+group_10 <- Oli_2008_age %>% filter(Age >= 10 & Age < 20)
+group_20 <- Oli_2008_age %>% filter(Age >= 20 & Age < 30)
+group_30 <- Oli_2008_age %>% filter(Age >= 30 & Age < 40)
+group_40 <- Oli_2008_age %>% filter(Age >= 40 & Age < 50)
+group_50 <- Oli_2008_age %>% filter(Age >= 50 & Age < 60)
+group_60 <- Oli_2008_age %>% filter(Age >= 60 & Age < 70)
+group_10_sports <- group_10 %>% select(Name) %>% unique() %>% as.vector() %>% unlist
+group_20_sports <- group_20 %>% select(Name) %>% unique() %>% as.vector() %>% unlist
+group_30_sports <- group_30 %>% select(Name) %>% unique() %>% as.vector() %>% unlist
+group_40_sports <- group_40 %>% select(Name) %>% unique() %>% as.vector() %>% unlist
+group_50_sports <- group_50 %>% select(Name) %>% unique() %>% as.vector() %>% unlist
+group_60_sports <- group_60 %>% select(Name) %>% unique() %>% as.vector() %>% unlist
+g1l <- length(group_10_sports)
+g2l <- length(group_20_sports)
+g3l <- length(group_30_sports)
+g4l <- length(group_40_sports)
+g5l <- length(group_50_sports)
+g6l <- length(group_60_sports)
+ls = c(g1 = g1l, g2 =  g2l, g3 =  g3l,
+       g4 = g4l, g5 =  g5l, g6 = g6l)
+ls[which.max(ls)]; ls[which.min(ls)]
+
+```
+By `range()` I fave determined min and max value in <span style="color: brown;">"Age"</span> to make groups with same spacing. So the most represented group in 2008 consists of sportsman between 20 and 30 y.o., whereas the less represented group in 2008 consists of sportsman between 60 and 70 y.o.
+
+### Task №8
+
+*How much has the number of sports changed in the 2002 Olympics compared to the 1994 Olympics?*
+```{r}
+Oli2002 <- data %>% filter(Year == 2002) %>% select(Sport) %>% unique()
+Oli1994 <- data %>% filter(Year == 1994) %>% select(Sport) %>% unique()
+dif_in_sports <- c("Difference in the number of sports" = length(Oli2002$Sport) - length(Oli1994$Sport))
+dif_in_sports
+```
+### Task №9
+
+*Output for the winter and summer Olympiad separately the top 3 countries for each type of medals.*
+
+```{r}
+medals <- data %>% filter(!is.na(Medal)&!is.na(Season))
+medal_freq <- data.frame(table(medals$Medal, medals$Season, medals$NOC))
+head(medal_freq)
+```
+
+### Task №10
+
+*Create a new Height_z_scores variable and store the values of the Height variable into it after it has been standardized.*
+```{r}
+Height_z_scores <- scale(data$Height)
+```
+
+### Task №11
+
+*Create a new variable Height_min_max_scaled and save the values of the variable Height into it after applying min-max normalization to it.*
+```{r}
+min_max_scale <- function(x){
+  (x- min(x, na.rm = TRUE)) /(max(x, na.rm = TRUE)-min(x, na.rm = TRUE))
+}
+
+Height_min_max_scaled <- data %>% select(Height) %>% lapply(min_max_scale)
+str(Height_min_max_scaled)
+```
+
+### Task №12
+
+*Compare the height, weight, and age of men and women who competed in the Winter Olympics. Please format the results so that we can immediately use them for the article.*
+```{r}
+winter_games <- data %>% filter(Season == "Winter")
+library(ggplot2)
+ggplot(winter_games, aes(x = Sex, y = Height, fill = Sex))+
+  geom_violin()+
+  geom_hline(yintercept = mean(winter_games$Height[winter_games$Sex == "M"], na.rm = T), 
+             color = "blue")+
+  geom_hline(yintercept = mean(winter_games$Height[winter_games$Sex == "F"], na.rm = T), 
+             color = "red")+
+  labs(title = "Comparison of male and female height (only winter season)")+
+  theme_dark()
+
+ggplot(winter_games, aes(x = Sex, y = Weight, fill = Sex))+
+  geom_violin()+
+  geom_hline(yintercept = mean(winter_games$Weight[winter_games$Sex == "M"], na.rm = T), 
+             color = "blue")+
+  geom_hline(yintercept = mean(winter_games$Weight[winter_games$Sex == "F"], na.rm = T), 
+             color = "red")+
+  labs(title = "Comparison of male and female weight (only winter season)")+
+  theme_dark()
+
+ggplot(winter_games, aes(x = Sex, y = Age, fill = Sex))+
+  geom_violin()+
+  geom_hline(yintercept = mean(winter_games$Age[winter_games$Sex == "M"], na.rm = T), 
+             color = "blue")+
+  geom_hline(yintercept = mean(winter_games$Age[winter_games$Sex == "F"], na.rm = T), 
+             color = "red")+
+  labs(title = "Comparison of male and female age (only winter season)")+
+  theme_dark()
+
+```
+
+### Task №13
+
+*We are especially interested in the Team and Medal variables. What can you say about them? Do we have reason to believe that they may be related? How did you define it?*
+
+We need to investigate relationship between <span style="color: brown;">"Team"</span> and <span style="color: brown;">"Medal"</span> variables. These variables are categorical and the number of observations are quit huge, what allows me to use chi-square test. H0 is that variables are independent. If p.value < 0.05 - the variables are dependent. 
+```{r}
+Noc_medal <- data %>% select(c(Medal, NOC)) %>% na.omit()
+chisq_res <- chisq.test(Noc_medal$Medal, Noc_medal$NOC)
+chisq_res$p.value; chisq_res$statistic; summary(chisq_res)
+```
+We have 608 observations to be used in this test, X-squared critical value is also huge. The most interesting fact, that p.value == 0 < 0.05, what means that our values are dependent. 
